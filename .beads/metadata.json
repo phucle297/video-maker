@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "video_maker",
+  "project_id": "efaefd2c-47e7-4828-a240-bec1ef64e1d7"
+}

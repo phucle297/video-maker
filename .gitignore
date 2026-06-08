@@ -12,3 +12,13 @@ outputs/
 bun.lock
 next-env.d.ts
 tsconfig.tsbuildinfo
+plans
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
