@@ -9,6 +9,7 @@ import { Schema } from "effect";
 import { runtime } from "@/lib/runtime";
 import { JobService } from "@/domain/jobs/service";
 import { BriefInput } from "@/domain/script/schema";
+import type { Script } from "@/domain/script/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,13 @@ export async function POST(req: Request) {
     return yield* jobSvc.createBrief(parsed);
   });
 
-  const exit = await runtime.runPromiseExit(program);
+  const exit = await runtime.runPromiseExit(
+    program as Effect.Effect<
+      { jobId: string; jobDir: string; script: Script; promptsMd: string },
+      { message: string },
+      JobService
+    >,
+  );
   if (Exit.isSuccess(exit)) {
     return NextResponse.json({
       ok: true,

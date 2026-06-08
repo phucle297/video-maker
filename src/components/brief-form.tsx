@@ -10,8 +10,16 @@ import { useRouter } from "next/navigation";
 import { createBrief } from "@/lib/actions";
 
 const STORY_TYPES = [
-  { value: "nosleep", label: "r/nosleep", hint: "First-person horror, present tense" },
-  { value: "creepypasta", label: "Creepypasta", hint: "Atmospheric, supernatural" },
+  {
+    value: "nosleep",
+    label: "r/nosleep",
+    hint: "First-person horror, present tense",
+  },
+  {
+    value: "creepypasta",
+    label: "Creepypasta",
+    hint: "Atmospheric, supernatural",
+  },
   { value: "mystic", label: "Mystic", hint: "Second-person, dreamlike" },
   { value: "rules", label: "Rules", hint: "Listicle count-up reveal" },
   { value: "imagine", label: "Imagine", hint: "Choose-your-path (linear v1)" },
@@ -38,7 +46,7 @@ export function BriefForm() {
   const [lengthMinutes, setLengthMinutes] = useState(4);
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [lang, setLang] = useState("vi");
-  const [voice, setVoice] = useState("male-qn-jingying");
+  const [voice, setVoice] = useState("English_causual_narrator_vv1");
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +72,9 @@ export function BriefForm() {
   return (
     <form onSubmit={onSubmit} style={{ display: "grid", gap: "1.25rem" }}>
       <div>
-        <label style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
+        <label
+          style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+        >
           Story type
         </label>
         <div
@@ -112,11 +122,17 @@ export function BriefForm() {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}
+      >
         <div>
           <label
             htmlFor="length"
-            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+            style={{
+              display: "block",
+              marginBottom: "0.4rem",
+              fontWeight: 500,
+            }}
           >
             Target length (minutes)
           </label>
@@ -133,11 +149,19 @@ export function BriefForm() {
         <div>
           <label
             htmlFor="aspect"
-            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+            style={{
+              display: "block",
+              marginBottom: "0.4rem",
+              fontWeight: 500,
+            }}
           >
             Aspect ratio
           </label>
-          <select id="aspect" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+          <select
+            id="aspect"
+            value={aspectRatio}
+            onChange={(e) => setAspectRatio(e.target.value)}
+          >
             {ASPECTS.map((a) => (
               <option key={a.value} value={a.value}>
                 {a.label}
@@ -147,15 +171,25 @@ export function BriefForm() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}
+      >
         <div>
           <label
             htmlFor="lang"
-            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+            style={{
+              display: "block",
+              marginBottom: "0.4rem",
+              fontWeight: 500,
+            }}
           >
             Language
           </label>
-          <select id="lang" value={lang} onChange={(e) => setLang(e.target.value)}>
+          <select
+            id="lang"
+            value={lang}
+            onChange={(e) => setLang(e.target.value)}
+          >
             {LANGS.map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
@@ -166,7 +200,11 @@ export function BriefForm() {
         <div>
           <label
             htmlFor="voice"
-            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+            style={{
+              display: "block",
+              marginBottom: "0.4rem",
+              fontWeight: 500,
+            }}
           >
             TTS voice
           </label>
@@ -174,7 +212,7 @@ export function BriefForm() {
             id="voice"
             value={voice}
             onChange={(e) => setVoice(e.target.value)}
-            placeholder="MiniMax voice id (e.g. male-qn-jingying)"
+            placeholder="MiniMax voice id (e.g. English_causual_narrator_vv1)"
           />
         </div>
       </div>
@@ -193,7 +231,9 @@ export function BriefForm() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+      <div
+        style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}
+      >
         <button type="submit" className="btn" disabled={pending || !theme}>
           {pending ? "Generating script…" : "Generate script"}
         </button>

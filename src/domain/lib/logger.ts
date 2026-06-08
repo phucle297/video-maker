@@ -11,10 +11,7 @@
 
 import { Logger, LogLevel } from "effect";
 
-export const AppLogger = Logger.replace(
-  Logger.defaultLogger,
-  Logger.simpleLogger({ showDate: true, showLevel: true }),
-);
+export const AppLogger = Logger.replace(Logger.defaultLogger, Logger.prettyLoggerDefault);
 
 export const LogLevelFromEnv = (level: string): LogLevel.LogLevel => {
   switch (level.toLowerCase()) {

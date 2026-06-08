@@ -4,7 +4,7 @@
 
 "use client";
 
-import type { Script } from "@/domain/script/schema";
+import type { Script, Segment, Callout } from "@/domain/script/schema";
 import { formatDuration } from "@/lib/format";
 
 export function ScriptViewer({ script }: { script: Script }) {
@@ -34,7 +34,7 @@ export function ScriptViewer({ script }: { script: Script }) {
       <div>
         <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Segments</h3>
         <div style={{ display: "grid", gap: "0.75rem" }}>
-          {script.segments.map((seg, i) => (
+          {script.segments.map((seg: Segment, i: number) => (
             <div key={seg.id} className="card">
               <div
                 style={{
@@ -61,7 +61,7 @@ export function ScriptViewer({ script }: { script: Script }) {
                     marginBottom: "0.5rem",
                   }}
                 >
-                  {seg.callouts.map((co, j) => (
+                  {seg.callouts.map((co: Callout, j: number) => (
                     <span
                       key={j}
                       className={co.emphasis === "strong" ? "badge badge-accent" : "badge"}

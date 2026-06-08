@@ -8,17 +8,17 @@
  *   3. Burn callouts.ass via the ass filter
  *   4. Re-encode to libx264 / aac for max compatibility
  *
- * Emits RenderEvent values for the UI to consume via SSE.
+ * Emits ComposeEvent values for the UI to consume via SSE.
  */
 
-import { Config, Effect, Layer, Stream } from "effect";
+import { Effect } from "effect";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { runFfmpeg, ffprobe } from "./ffmpeg";
-import { FileSystemError } from "../lib/errors";
+import { FileSystemError, FfmpegError } from "../lib/errors";
 import type { Script } from "../script/schema";
 
-export type RenderEvent =
+export type ComposeEvent =
   | { type: "compose-start"; totalPacks: number }
   | { type: "compose-pack-done"; index: number; segmentId: string }
   | {
@@ -37,8 +37,8 @@ export interface ComposeInput {
   calloutsAssPath: string;
   outPath: string;
   padMode?: "freeze" | "black";
-  /** Emit RenderEvents to this queue (best-effort). */
-  onEvent?: (event: RenderEvent) => void;
+  /** Emit ComposeEvents to this queue (best-effort). */
+  onEvent?: (event: ComposeEvent) => void;
 }
 
 const dimsFor = (aspect: string): { w: number; h: number } => {
@@ -47,7 +47,7 @@ const dimsFor = (aspect: string): { w: number; h: number } => {
   return { w: 1080, h: 1080 };
 };
 
-async function buildPerSegmentPack(
+const buildPerSegmentPack = (
   segIndex: number,
   segId: string,
   videoPath: string,
@@ -56,79 +56,73 @@ async function buildPerSegmentPack(
   w: number,
   h: number,
   padMode: "freeze" | "black",
-): Promise<{ path: string; duration: number }> {
-  const outPath = path.join(outDir, `pack-${String(segIndex).padStart(3, "0")}.mp4`);
+): Effect.Effect<{ path: string; duration: number }, FfmpegError | FileSystemError, never> =>
+  Effect.gen(function* () {
+    const outPath = path.join(outDir, `pack-${String(segIndex).padStart(3, "0")}.mp4`);
 
-  const vProbe = await ffprobe(videoPath).then(
-    (p) => p,
-    () => ({ duration: 0, width: 0, height: 0 }),
-  );
-  const aProbe = await ffprobe(audioPath).then(
-    (p) => p,
-    () => ({ duration: 0, width: 0, height: 0 }),
-  );
+    const vProbe = yield* ffprobe(videoPath).pipe(
+      Effect.orElseSucceed(() => ({ duration: 0, width: 0, height: 0 })),
+    );
+    const aProbe = yield* ffprobe(audioPath).pipe(
+      Effect.orElseSucceed(() => ({ duration: 0, width: 0, height: 0 })),
+    );
 
-  const vDur = vProbe.duration;
-  const aDur = aProbe.duration;
-  let padFilter = "";
-  if (aDur > vDur + 0.1) {
-    const extra = aDur - vDur;
-    padFilter =
-      padMode === "black"
-        ? `,tpad=stop_mode=add:stop_duration=${extra.toFixed(3)}:color=black`
-        : `,tpad=stop_mode=clone:stop_duration=${extra.toFixed(3)}`;
-  }
+    const vDur = vProbe.duration;
+    const aDur = aProbe.duration;
+    let padFilter = "";
+    if (aDur > vDur + 0.1) {
+      const extra = aDur - vDur;
+      padFilter =
+        padMode === "black"
+          ? `,tpad=stop_mode=add:stop_duration=${extra.toFixed(3)}:color=black`
+          : `,tpad=stop_mode=clone:stop_duration=${extra.toFixed(3)}`;
+    }
 
-  const scaleFilter = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black,fps=30${padFilter},setsar=1`;
+    const scaleFilter = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black,fps=30${padFilter},setsar=1`;
 
-  await runFfmpeg(
-    [
-      "-y",
-      "-i",
-      videoPath,
-      "-i",
-      audioPath,
-      "-filter_complex",
-      `[0:v]${scaleFilter}[v];[1:a]aformat=sample_fmts=fltp:channel_layouts=stereo,apad[a]`,
-      "-map",
-      "[v]",
-      "-map",
-      "[a]",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      "20",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "192k",
-      "-shortest",
-      "-t",
-      aDur.toFixed(3),
-      outPath,
-    ],
-    { inheritIO: false },
-  ).then(
-    () => undefined,
-    (e) => {
-      throw e;
-    },
-  );
+    yield* runFfmpeg(
+      [
+        "-y",
+        "-i",
+        videoPath,
+        "-i",
+        audioPath,
+        "-filter_complex",
+        `[0:v]${scaleFilter}[v];[1:a]aformat=sample_fmts=fltp:channel_layouts=stereo,apad[a]`,
+        "-map",
+        "[v]",
+        "-map",
+        "[a]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-shortest",
+        "-t",
+        aDur.toFixed(3),
+        outPath,
+      ],
+      { inheritIO: false },
+    );
 
-  return { path: outPath, duration: aDur };
-}
+    return { path: outPath, duration: aDur };
+  });
 
 export const compose = (
   input: ComposeInput,
-): Effect.Effect<{ outPath: string; duration: number }, FileSystemError> =>
+): Effect.Effect<{ outPath: string; duration: number }, FfmpegError | FileSystemError, never> =>
   Effect.gen(function* () {
     const { script, videoPaths, audioPaths, calloutsAssPath, outPath } = input;
     const padMode = input.padMode ?? "freeze";
     const { w, h } = dimsFor(script.aspectRatio);
 
-    const emit = (e: RenderEvent) => input.onEvent?.(e);
+    const emit = (e: ComposeEvent) => input.onEvent?.(e);
 
     emit({ type: "compose-start", totalPacks: videoPaths.length });
 
@@ -161,22 +155,25 @@ export const compose = (
       const a = audioPaths[i];
       if (!seg || !v || !a) continue;
 
-      try {
-        const pack = yield* Effect.tryPromise({
-          try: () => buildPerSegmentPack(i, seg.id, v, a, tmpDir, w, h, padMode),
-          catch: (e) => new FileSystemError({ message: `pack ${i} failed`, cause: e }),
-        });
+      const packEffect = buildPerSegmentPack(i, seg.id, v, a, tmpDir, w, h, padMode).pipe(
+        Effect.catchAll((e) =>
+          Effect.sync(() => {
+            emit({
+              type: "compose-pack-error",
+              index: i,
+              segmentId: seg.id,
+              message: e.message,
+            });
+            // Continue with what we have: skip this pack, do not push.
+            return undefined;
+          }),
+        ),
+      );
+
+      const pack = yield* packEffect;
+      if (pack) {
         packs.push(pack);
         emit({ type: "compose-pack-done", index: i, segmentId: seg.id });
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        emit({
-          type: "compose-pack-error",
-          index: i,
-          segmentId: seg.id,
-          message,
-        });
-        // Continue with what we have
       }
     }
 

@@ -8,7 +8,7 @@
  * Pure function, no Effects needed (input is fully typed, output is a string).
  */
 
-import type { Callout, CalloutAnchor, CalloutStyle, Script } from "../script/schema.js";
+import type { Callout, CalloutAnchor, CalloutStyle, Script } from "../script/schema";
 
 function dimsFor(aspect: string): { w: number; h: number; baseSize: number; strongSize: number } {
   if (aspect === "9:16") return { w: 1080, h: 1920, baseSize: 72, strongSize: 110 };

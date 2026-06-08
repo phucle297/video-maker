@@ -8,11 +8,11 @@ import { NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { Effect, Exit } from "effect";
-import { runtime } from "@/lib/runtime";
+import { runtime as effectRuntime } from "@/lib/runtime";
 import { JobService, videoPath } from "@/domain/jobs/service";
 
 export const dynamic = "force-dynamic";
-export const runtime2 = "nodejs";
+export const runtime = "nodejs";
 
 export async function PUT(
   req: Request,
@@ -29,7 +29,7 @@ export async function PUT(
   const program = Effect.gen(function* () {
     const jobSvc = yield* JobService;
     const job = yield* jobSvc.getStatus(jobId);
-    const seg = job.script.segments.find((s) => s.id === segId);
+    const seg = job.script.segments.find((s: { id: string }) => s.id === segId);
     if (!seg) {
       return yield* Effect.fail(new Error(`segment ${segId} not in script`));
     }
@@ -45,7 +45,7 @@ export async function PUT(
     });
   });
 
-  const exit = await runtime.runPromiseExit(program);
+  const exit = await effectRuntime.runPromiseExit(program);
   if (Exit.isSuccess(exit)) {
     return NextResponse.json({ ok: true });
   }

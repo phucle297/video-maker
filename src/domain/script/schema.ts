@@ -57,10 +57,10 @@ export type VisualCue = Schema.Schema.Type<typeof VisualCue>;
 
 export const Segment = Schema.Struct({
   id: Schema.String.pipe(Schema.pattern(/^seg-\d{3}$/)),
-  text: Schema.String.pipe(Schema.minLength(10)),
-  approxDuration: Schema.Number.pipe(Schema.between(2, 20)),
+  text: Schema.String.pipe(Schema.minLength(80)),
+  approxDuration: Schema.Number.pipe(Schema.between(15, 60)),
   visual: VisualCue,
-  callouts: Schema.Array(Callout).pipe(Schema.maxLength(3)),
+  callouts: Schema.Array(Callout).pipe(Schema.maxItems(3)),
 });
 export type Segment = Schema.Schema.Type<typeof Segment>;
 
@@ -75,7 +75,7 @@ export const Script = Schema.Struct({
   styleAnchor: Schema.String.pipe(Schema.minLength(10)),
   ttsVoiceHint: Schema.optional(Schema.String),
   totalDuration: Schema.Number.pipe(Schema.between(15, 600)),
-  segments: Schema.Array(Segment).pipe(Schema.minLength(3), Schema.maxLength(20)),
+  segments: Schema.Array(Segment).pipe(Schema.minItems(3), Schema.maxItems(20)),
 });
 export type Script = Schema.Schema.Type<typeof Script>;
 

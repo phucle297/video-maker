@@ -1,16 +1,17 @@
 /**
  * POST /api/jobs/[jobId]/render — start a render, stream progress via SSE.
  *
+ * Runs on Bun (ffmpeg child_process is invoked from the Bun runtime).
  * Uses Effect's Stream to emit RenderEvent values one at a time.
  * Each event is sent as a `data: <json>\n\n` line to the client.
  */
 
-import { runtime } from "@/lib/runtime";
+import { runtime as effectRuntime } from "@/lib/runtime";
 import { JobService } from "@/domain/jobs/service";
 import { Effect, Stream, Exit } from "effect";
 
 export const dynamic = "force-dynamic";
-export const runtime2 = "nodejs"; // we use ffmpeg child_process
+export const runtime = "nodejs"; // we use ffmpeg child_process
 
 export async function POST(_req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
@@ -21,7 +22,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ jobId:
     return jobSvc.renderJob(jobId);
   });
 
-  const streamExit = await runtime.runPromiseExit(streamEffect);
+  const streamExit = await effectRuntime.runPromiseExit(streamEffect);
   if (Exit.isFailure(streamExit)) {
     return new Response(JSON.stringify({ error: "Failed to start render" }), {
       status: 500,

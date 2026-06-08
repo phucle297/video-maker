@@ -6,7 +6,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Script } from "@/domain/script/schema";
+import type { Script, Segment } from "@/domain/script/schema";
 
 interface Props {
   jobId: string;
@@ -42,13 +42,15 @@ export function PromptsViewer({ jobId, script }: Props) {
         {script.aspectRatio} video clip, download, then upload in the <strong>Videos</strong> tab.
       </div>
 
-      {script.segments.map((seg, i) => {
+      {script.segments.map((seg: Segment, i: number) => {
         const promptText = buildFullPrompt(
           script.styleAnchor,
           seg.visual.prompt,
           seg.visual.notesForHuman,
         );
-        const startSec = script.segments.slice(0, i).reduce((s, x) => s + x.approxDuration, 0);
+        const startSec = script.segments
+          .slice(0, i)
+          .reduce((s: number, x: Segment) => s + x.approxDuration, 0);
         const endSec = startSec + seg.approxDuration;
         const mm = (s: number) =>
           `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;

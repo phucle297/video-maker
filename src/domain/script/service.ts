@@ -5,14 +5,13 @@
  * Returns a typed Script (or a tagged error).
  */
 
-import { Config, Effect, Layer, Schedule, Schema } from "effect";
-import { BriefInput, Script } from "./schema.js";
-import { LLMService } from "./llm.js";
-import { buildSystemPrompt, buildUserPrompt } from "./prompts.js";
-import { validateScript } from "./validation.js";
-import { DefaultLang, DefaultAspect } from "../lib/config.js";
-import { LlmRetry } from "../lib/retry.js";
-import { ValidationError } from "../lib/errors.js";
+import { Effect, Schema } from "effect";
+import { BriefInput, Script } from "./schema";
+import { LLMService } from "./llm";
+import { buildSystemPrompt, buildUserPrompt } from "./prompts";
+import { validateScript } from "./validation";
+import { DefaultLang, DefaultAspect } from "../lib/config";
+import { ValidationError } from "../lib/errors";
 
 export class ScriptService extends Effect.Service<ScriptService>()("app/ScriptService", {
   effect: Effect.gen(function* () {
@@ -36,16 +35,10 @@ export class ScriptService extends Effect.Service<ScriptService>()("app/ScriptSe
           }),
         );
 
-        const llmResult = yield* llm
-          .completeJSON({
-            system: buildSystemPrompt(enriched.storyType),
-            user: buildUserPrompt(enriched),
-          })
-          .pipe(
-            Effect.retry(LlmRetry),
-            Effect.timeout("90 seconds"),
-            Effect.tapError((e) => Effect.logError("LLM call failed", e)),
-          );
+        const llmResult = yield* llm.completeJSON({
+          system: buildSystemPrompt(enriched.storyType),
+          user: buildUserPrompt(enriched),
+        });
 
         // Schema decode is an Effect — invalid output is a typed error
         const script = yield* Schema.decodeUnknown(Script)(llmResult.json).pipe(
@@ -58,22 +51,35 @@ export class ScriptService extends Effect.Service<ScriptService>()("app/ScriptSe
           ),
         );
 
-        // Cross-field validation
-        const validated = yield* validateScript(script, enriched.lengthMinutes);
-
-        yield* Effect.logInfo("script generated", {
-          title: validated.title,
-          segments: validated.segments.length,
-          totalDuration: validated.totalDuration,
+        // Cross-field validation (validateScript is sync-throws; wrap with Effect.try)
+        const validated: Script = yield* Effect.try({
+          try: () => validateScript(script, enriched.lengthMinutes),
+          catch: (e) => {
+            if (e instanceof ValidationError) return e;
+            return new ValidationError({
+              message: `validation failed: ${String(e)}`,
+              cause: e,
+            });
+          },
         });
 
-        return validated;
+        // User-supplied voice from the brief is authoritative — override whatever
+        // the LLM echoed into ttsVoiceHint so TTS uses the exact id the user picked.
+        const withVoice: Script = enriched.voice
+          ? { ...validated, ttsVoiceHint: enriched.voice }
+          : validated;
+
+        yield* Effect.logInfo("script generated", {
+          title: withVoice.title,
+          segments: withVoice.segments.length,
+          totalDuration: withVoice.totalDuration,
+          ttsVoiceHint: withVoice.ttsVoiceHint,
+        });
+
+        return withVoice;
       });
 
     return { generate } as const;
   }),
   dependencies: [LLMService.Default],
 }) {}
-
-// Re-export the schema so callers can grab types in one place
-export { Script, BriefInput } from "./schema.js";

@@ -12,7 +12,7 @@ import { formatDuration } from "@/lib/format";
 
 interface Props {
   jobId: string;
-  segments: Segment[];
+  segments: readonly Segment[];
   videos: VideoStatus[];
   onChange: (videos: VideoStatus[]) => void;
 }
@@ -27,7 +27,11 @@ export function VideoChecklist({ jobId, segments, videos, onChange }: Props) {
 
       <div style={{ display: "grid", gap: "0.5rem" }}>
         {segments.map((seg, i) => {
-          const v = videos[i];
+          const v: VideoStatus = videos[i] ?? {
+            segmentId: seg.id,
+            uploaded: false,
+            expectedPath: "",
+          };
           return (
             <VideoRow
               key={seg.id}

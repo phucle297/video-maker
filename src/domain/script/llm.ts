@@ -1,23 +1,34 @@
 /**
  * MiniMax LLM HTTP client, wrapped in Effect.
  *
+ * Endpoint: POST {baseUrl}/text/chatcompletion_v2
+ * Auth:     Bearer {apiKey}
+ *
+ * Why manual JSON decode (not Schema.decodeUnknown):
+ *   - MiniMax's response message carries extra fields (`name`, `audio_content`)
+ *     that change without notice. A strict `Schema.Struct` rejects them as
+ *     "shape mismatch" even when the call succeeded.
+ *   - The endpoint also rejects `response_format: { type: "json_object" }`
+ *     (status 2013) — we rely on the system prompt to ask for JSON and
+ *     `JSON.parse(content)` to extract it.
+ *
  * Why this lives in its own service:
  *   - The LLM endpoint is the single biggest external dependency
  *   - It has its own retry policy, timeout, and error shape
  *   - It's mockable in tests by providing a different LLMService
  */
 
-import { Config, Effect, Layer, Schedule, Schema } from "effect";
+import { Effect, Redacted, Schema } from "effect";
 import {
   MiniMaxApiKey,
   MiniMaxLlmModel,
   MiniMaxLlmTemperature,
   MiniMaxLlmUrl,
-} from "../lib/config.js";
-import { LLMError } from "../lib/errors.js";
-import { LlmRetry } from "../lib/retry.js";
+} from "../lib/config";
+import { LLMError } from "../lib/errors";
+import { LlmRetry } from "../lib/retry";
 
-// ---------- request/response schemas (defensive) ----------
+// ---------- request schema (encode only — output is what we send) ----------
 
 const ChatMessage = Schema.Struct({
   role: Schema.Literal("system", "user", "assistant"),
@@ -29,30 +40,15 @@ const ChatRequestBody = Schema.Struct({
   model: Schema.String,
   messages: Schema.Array(ChatMessage),
   temperature: Schema.Number,
-  response_format: Schema.optional(Schema.Struct({ type: Schema.Literal("json_object") })),
 });
 
-const ChatChoice = Schema.Struct({
-  index: Schema.Number,
-  message: Schema.Struct({
-    role: Schema.Literal("assistant"),
-    content: Schema.String,
-  }),
-  finish_reason: Schema.optional(Schema.String),
-});
+// ---------- response shape (defensive manual decode, see header) ----------
 
-const ChatResponse = Schema.Struct({
-  id: Schema.String,
-  model: Schema.String,
-  choices: Schema.Array(ChatChoice),
-  usage: Schema.optional(
-    Schema.Struct({
-      prompt_tokens: Schema.Number,
-      completion_tokens: Schema.Number,
-      total_tokens: Schema.Number,
-    }),
-  ),
-});
+interface ParsedUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
 
 // ---------- service ----------
 
@@ -71,7 +67,7 @@ export interface LLMResponseUsage {
 
 export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
   effect: Effect.gen(function* () {
-    const apiKey = yield* MiniMaxApiKey;
+    const apiKey = Redacted.value(yield* MiniMaxApiKey);
     const baseUrl = yield* MiniMaxLlmUrl;
     const model = yield* MiniMaxLlmModel;
     const defaultTemp = yield* MiniMaxLlmTemperature;
@@ -83,11 +79,10 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
         const body = yield* Schema.encode(ChatRequestBody)({
           model,
           messages: [
-            { role: "system" as const, content: req.system },
-            { role: "user" as const, content: req.user },
+            { role: "system", content: req.system },
+            { role: "user", content: req.user },
           ],
           temperature: req.temperature ?? defaultTemp,
-          response_format: { type: "json_object" as const },
         });
 
         const response = yield* Effect.tryPromise({
@@ -98,7 +93,7 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${apiKey}`,
               },
-              body,
+              body: JSON.stringify(body),
             }),
           catch: (e) =>
             new LLMError({
@@ -121,7 +116,7 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
           const errorText = yield* Effect.tryPromise({
             try: () => response.text(),
             catch: () => "could not read error body",
-          }).pipe(Effect.orElseSucceed(() => "could not read error body"));
+          });
           return yield* Effect.fail(
             new LLMError({
               message: `MiniMax LLM ${response.status}: ${errorText.slice(0, 300)}`,
@@ -131,7 +126,7 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
         }
 
         const responseJson = yield* Effect.tryPromise({
-          try: () => response.json(),
+          try: () => response.json() as Promise<unknown>,
           catch: (e) =>
             new LLMError({
               message: "MiniMax LLM: failed to parse response JSON",
@@ -139,31 +134,31 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
             }),
         });
 
-        const parsed = yield* Schema.decodeUnknown(ChatResponse)(responseJson).pipe(
-          Effect.mapError(
-            (e) =>
+        // Surface MiniMax's structured error envelope (e.g. status 200 with
+        // body {"base_resp":{"status_code":2013,"status_msg":"..."}}).
+        if (isObject(responseJson) && isObject(responseJson.base_resp)) {
+          const br = responseJson.base_resp;
+          if (typeof br.status_code === "number" && br.status_code !== 0) {
+            return yield* Effect.fail(
               new LLMError({
-                message: "MiniMax LLM: response shape mismatch",
-                cause: e,
+                message: `MiniMax LLM api error ${br.status_code}: ${br.status_msg ?? "unknown"}`,
               }),
-          ),
-        );
+            );
+          }
+        }
 
-        const firstChoice = parsed.choices[0];
-        if (!firstChoice) {
+        // Manual defensive decode — tolerate unknown fields at any depth.
+        const content = extractContent(responseJson);
+        if (content === null) {
           return yield* Effect.fail(
-            new LLMError({ message: "MiniMax LLM: no choices in response" }),
+            new LLMError({
+              message: "MiniMax LLM: response missing choices[0].message.content",
+              cause: responseJson,
+            }),
           );
         }
 
-        const content = firstChoice.message.content;
-        const usage: LLMResponseUsage | undefined = parsed.usage
-          ? {
-              promptTokens: parsed.usage.prompt_tokens,
-              completionTokens: parsed.usage.completion_tokens,
-              totalTokens: parsed.usage.total_tokens,
-            }
-          : undefined;
+        const usage = extractUsage(responseJson);
 
         // Parse the content as JSON
         const jsonContent = yield* Effect.try({
@@ -179,26 +174,65 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
       }).pipe(
         // Retry transient failures with the LLM schedule
         Effect.retry(LlmRetry),
-        // Cap the whole call at 90 seconds
-        Effect.timeout("90 seconds"),
+        // Cap the whole call at 5 minutes — a 3-4 min script with full
+        // narration + visual prompts can take 1-3 min to generate.
+        Effect.timeout("5 minutes"),
         Effect.tapError((e) => Effect.logError("LLM call failed", e)),
       );
 
     return { completeJSON } as const;
   }),
-  // The service needs Config primitives; Effect provides them automatically
-  // through the Layer system, but we list them for clarity.
-  dependencies: [],
 }) {}
 
-// ---------- test layer (mock) ----------
+// TODO(permees): switch brief generation to SSE streaming.
+//
+// Add `completeJSONStream(req): Stream.Stream<LLMDelta, LLMError>` that POSTs
+// with `stream: true` to `/text/chatcompletion_v2` and yields each
+// `choices[0].delta.content` token. The endpoint returns lines like
+//   data: {"choices":[{"delta":{"content":"...","role":"assistant","name":"MiniMax AI","audio_content":""},"finish_reason":null}]}
+//   data: [DONE]
+// Use `ReadableStream` from `response.body` and a TextDecoder line splitter.
+// Then add `ScriptService.generateStream(input): Stream<BriefGenEvent, ...>`
+// that emits {type:"thinking"} → {type:"token", text}* → {type:"saving"} →
+// {type:"done", script} and delegates the final JSON.parse + Schema decode +
+// save to JobService. New route `src/app/api/briefs/stream/route.ts` (mirror
+// the pattern in `src/app/api/jobs/[jobId]/render/route.ts`) wraps the
+// stream as text/event-stream. `src/components/brief-form.tsx` switches from
+// `useTransition` + `createBrief` server action to `fetch().body.getReader()`
+// consuming the SSE stream, showing live tokens in a thinking panel before
+// redirecting on `done`. Motivation: brief generation currently blocks the
+// server action for up to 5 min and the user sees no progress.
 
-export const LLMServiceTest = (responses: Record<string, unknown>) =>
-  Layer.succeed(LLMService, {
-    completeJSON: (_req: LLMRequest) =>
-      Effect.succeed({
-        json: responses["default"] ?? {},
-        content: JSON.stringify(responses["default"] ?? {}),
-        usage: undefined,
-      }),
-  } as unknown as LLMService);
+
+// ---------- helpers ----------
+
+function isObject(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+function extractContent(raw: unknown): string | null {
+  if (!isObject(raw)) return null;
+  const choices = raw.choices;
+  if (!Array.isArray(choices) || choices.length === 0) return null;
+  const first = choices[0];
+  if (!isObject(first)) return null;
+  const message = first.message;
+  if (!isObject(message)) return null;
+  return typeof message.content === "string" ? message.content : null;
+}
+
+function extractUsage(raw: unknown): LLMResponseUsage | undefined {
+  if (!isObject(raw)) return undefined;
+  const usage = raw.usage;
+  if (!isObject(usage)) return undefined;
+  const p = usage.prompt_tokens;
+  const c = usage.completion_tokens;
+  const t = usage.total_tokens;
+  if (typeof p !== "number" || typeof c !== "number" || typeof t !== "number") {
+    return undefined;
+  }
+  return { promptTokens: p, completionTokens: c, totalTokens: t };
+}
+
+// keep the type alias referenced so it isn't tree-shaken (also documents intent)
+type _UsageAlias = ParsedUsage;

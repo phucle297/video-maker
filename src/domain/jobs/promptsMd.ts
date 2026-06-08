@@ -4,7 +4,7 @@
  * downloads the video, drops it in videos/<segId>.mp4.
  */
 
-import type { Script } from "../script/schema.js";
+import type { Script } from "../script/schema";
 
 function aspectInstruction(ar: string): string {
   if (ar === "9:16") return "vertical 9:16 (1080x1920)";
@@ -61,7 +61,7 @@ export function renderPromptsMd(script: Script, jobId: string): string {
 
   let t = 0;
   for (let i = 0; i < script.segments.length; i++) {
-    const seg = script.segments[i];
+    const seg = script.segments[i]!;
     const start = t;
     const end = t + seg.approxDuration;
     const mm = (s: number) =>

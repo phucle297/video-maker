@@ -5,11 +5,11 @@
 import { promises as fs } from "node:fs";
 import { createReadStream, statSync } from "node:fs";
 import { Effect, Exit } from "effect";
-import { runtime } from "@/lib/runtime";
+import { runtime as effectRuntime } from "@/lib/runtime";
 import { JobService } from "@/domain/jobs/service";
 
 export const dynamic = "force-dynamic";
-export const runtime2 = "nodejs";
+export const runtime = "nodejs";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ jobId: 
     return yield* jobSvc.getStatus(jobId);
   });
 
-  const exit = await runtime.runPromiseExit(program);
+  const exit = await effectRuntime.runPromiseExit(program);
   if (Exit.isFailure(exit)) {
     return new Response("Job not found", { status: 404 });
   }

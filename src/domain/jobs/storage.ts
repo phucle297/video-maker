@@ -12,12 +12,12 @@
  *   └── final.mp4
  */
 
-import { Config, Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { OutputDir } from "../lib/config.js";
-import { FileSystemError, JobNotFoundError } from "../lib/errors.js";
-import type { Script } from "../script/schema.js";
+import { OutputDir } from "../lib/config";
+import { FileSystemError, JobNotFoundError } from "../lib/errors";
+import type { Script } from "../script/schema";
 
 export const scriptPath = (jobDir: string) => path.join(jobDir, "script.json");
 export const promptsPath = (jobDir: string) => path.join(jobDir, "prompts.md");
@@ -59,42 +59,15 @@ export class JobStorage extends Effect.Service<JobStorage>()("app/JobStorage", {
         catch: (e) => new FileSystemError({ message: "read failed", path: p, cause: e }),
       });
 
-    const readText = (p: string) =>
-      Effect.tryPromise({
-        try: () => fs.readFile(p, "utf-8"),
-        catch: (e) => new FileSystemError({ message: "read failed", path: p, cause: e }),
-      });
-
     const exists = (p: string) =>
-      Effect.tryPromise({
-        try: async () => {
-          try {
-            await fs.access(p);
-            return true;
-          } catch {
-            return false;
-          }
-        },
-        catch: () => false,
-      }).pipe(Effect.orElseSucceed(() => false));
+      Effect.promise(() => fs.access(p).then(() => true).catch(() => false));
 
     const jobDir = (jobId: string) => path.resolve(outRoot, jobId);
 
     const listJobs = () =>
       Effect.gen(function* () {
-        const exists = yield* Effect.tryPromise({
-          try: async () => {
-            try {
-              await fs.access(outRoot);
-              return true;
-            } catch {
-              return false;
-            }
-          },
-          catch: () => false,
-        }).pipe(Effect.orElseSucceed(() => false));
-        if (!exists) return [] as string[];
-
+        const dirExists = yield* exists(outRoot);
+        if (!dirExists) return [] as string[];
         return yield* Effect.tryPromise({
           try: async () => {
             const entries = await fs.readdir(outRoot, { withFileTypes: true });
@@ -104,7 +77,7 @@ export class JobStorage extends Effect.Service<JobStorage>()("app/JobStorage", {
               .sort()
               .reverse();
           },
-          catch: (e) => [] as string[],
+          catch: (e) => new FileSystemError({ message: "readdir failed", path: outRoot, cause: e }),
         });
       });
 
@@ -135,7 +108,6 @@ export class JobStorage extends Effect.Service<JobStorage>()("app/JobStorage", {
       writeText,
       writeJson,
       readJson,
-      readText,
       exists,
       listJobs,
       getJob,

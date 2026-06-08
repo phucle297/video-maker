@@ -8,14 +8,13 @@
  *   - getStatus(jobId): read job folder state
  */
 
-import { Config, Effect, Layer, Stream } from "effect";
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { BriefInput, Script } from "../script/schema.js";
-import { ScriptService } from "../script/service.js";
-import { TtsService } from "../tts/service.js";
-import { renderCalloutsAss, validateCallouts } from "../callouts/ass.js";
-import { ComposeService, type RenderEvent } from "../compose/service.js";
+import { Effect, Stream } from "effect";
+import { BriefInput, Script, type Segment } from "../script/schema";
+import { ScriptService } from "../script/service";
+import { TtsService } from "../tts/service";
+import { renderCalloutsAss, validateCallouts } from "../callouts/ass";
+import { ComposeService } from "../compose/service";
+import type { ComposeEvent } from "../compose/service";
 import {
   JobStorage,
   scriptPath,
@@ -27,12 +26,37 @@ import {
   readmePath,
   videosDir,
   voiceDir,
-} from "./storage.js";
-import { jobDateStamp, slugify } from "./slug.js";
-import { renderPromptsMd } from "./promptsMd.js";
-import { MissingVideosError, FileSystemError } from "../lib/errors.js";
-import { ffprobe } from "../compose/ffmpeg.js";
-import { PipelineConcurrency } from "../lib/config.js";
+} from "./storage";
+export { promptsPath, videoPath } from "./storage";
+import { jobDateStamp, slugify } from "./slug";
+import { renderPromptsMd } from "./promptsMd";
+import { ffprobe } from "../compose/ffmpeg";
+import { PipelineConcurrency } from "../lib/config";
+
+export type TtsEvent = {
+  type: "tts";
+  segmentId: string;
+  index: number;
+  status: "start" | "done" | "error" | "cached";
+  path?: string;
+  message?: string;
+};
+
+export type RenderEvent =
+  | { type: "started"; jobId: string; totalSegments: number }
+  | TtsEvent
+  | {
+      type: "compose";
+      status: "start" | "pack-done" | "pack-error" | "done" | "error";
+      current?: number;
+      total?: number;
+      segmentId?: string;
+      message?: string;
+      outPath?: string;
+      durationSec?: number;
+    }
+  | { type: "done"; outPath: string; durationSec: number }
+  | { type: "error"; message: string; fatal: boolean };
 
 export interface CreateBriefResult {
   jobId: string;
@@ -109,7 +133,7 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
         const job = yield* storage.getJob(jobId);
         const videos: VideoStatus[] = [];
         for (const seg of job.script.segments) {
-          const p = videoPath(jobDir(jobId), seg.id);
+          const p = videoPath(job.jobDir, seg.id);
           const ex = yield* storage.exists(p);
           if (ex) {
             const probe = yield* ffprobe(p).pipe(
@@ -153,180 +177,134 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
     // ---------- renderJob (Stream of RenderEvent) ----------
 
     const renderJob = (jobId: string) =>
-      Stream.async<RenderEvent, never>((emit) => {
-        Effect.runFork(
-          Effect.gen(function* () {
-            const job = yield* storage
-              .getJob(jobId)
-              .pipe(
-                Effect.tapError((e) =>
-                  Effect.sync(() =>
-                    emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent),
-                  ),
-                ),
-              );
-            if (!job) return;
+      Stream.asyncEffect<RenderEvent, never>((emit) =>
+        Effect.gen(function* () {
+          const job = yield* storage.getJob(jobId).pipe(
+            Effect.tapError((e) =>
+              Effect.sync(() =>
+                emit.single({
+                  type: "error",
+                  message: e instanceof Error ? e.message : String(e),
+                  fatal: true,
+                }),
+              ),
+            ),
+          );
+          if (!job) return;
 
+          emit.single({
+            type: "started",
+            jobId,
+            totalSegments: job.script.segments.length,
+          });
+
+          // Validate videos first
+          const missing: string[] = [];
+          for (const seg of job.script.segments) {
+            const p = videoPath(job.jobDir, seg.id);
+            const ex = yield* storage.exists(p);
+            if (!ex) missing.push(seg.id);
+          }
+          if (missing.length > 0) {
             emit.single({
-              type: "started",
-              jobId,
-              totalSegments: job.script.segments.length,
-            } as RenderEvent);
+              type: "error",
+              message: `Missing ${missing.length} video(s): ${missing.join(", ")}`,
+              fatal: true,
+            });
+            return;
+          }
 
-            // Validate videos first
-            const missing: string[] = [];
-            for (const seg of job.script.segments) {
-              const p = videoPath(job.jobDir, seg.id);
-              const ex = yield* storage.exists(p);
-              if (!ex) missing.push(seg.id);
-            }
-            if (missing.length > 0) {
+          // TTS — synthesize per segment, stream per-segment events into the render stream.
+          // Voice priority: script.ttsVoiceHint (set from brief) > env default.
+          yield* ttsSvc
+            .synthesizeAllStream(job.script.segments, voiceDir(job.jobDir), job.script.ttsVoiceHint)
+            .pipe(
+              Stream.tap((ttsEvent) => Effect.sync(() => emit.single(ttsEvent))),
+              Stream.runDrain,
+            );
+
+          // Render callouts.ass
+          const ass = renderCalloutsAss(job.script);
+          yield* storage.writeText(calloutsPath(job.jobDir), ass);
+
+          // Compose
+          const videoPaths = job.script.segments.map((s: Segment) => videoPath(job.jobDir, s.id));
+          const audioPaths = job.script.segments.map((s: Segment) => audioPath(job.jobDir, s.id));
+          const out = finalPath(job.jobDir);
+
+          const result = yield* composeSvc
+            .compose({
+              script: job.script,
+              videoPaths,
+              audioPaths,
+              calloutsAssPath: calloutsPath(job.jobDir),
+              outPath: out,
+              padMode: "freeze",
+              onEvent: (e: ComposeEvent) => {
+                // Translate compose events to render events
+                if (e.type === "compose-start") {
+                  emit.single({
+                    type: "compose",
+                    status: "start",
+                    total: e.totalPacks,
+                  });
+                } else if (e.type === "compose-pack-done") {
+                  emit.single({
+                    type: "compose",
+                    status: "pack-done",
+                    current: e.index + 1,
+                    total: videoPaths.length,
+                    segmentId: e.segmentId,
+                  });
+                } else if (e.type === "compose-pack-error") {
+                  emit.single({
+                    type: "compose",
+                    status: "pack-error",
+                    current: e.index + 1,
+                    total: videoPaths.length,
+                    segmentId: e.segmentId,
+                    message: e.message,
+                  });
+                } else if (e.type === "compose-done") {
+                  emit.single({
+                    type: "compose",
+                    status: "done",
+                    outPath: e.outPath,
+                    durationSec: e.duration,
+                  });
+                } else if (e.type === "compose-error") {
+                  emit.single({
+                    type: "compose",
+                    status: "error",
+                    message: e.message,
+                  });
+                }
+              },
+            })
+            .pipe(
+              Effect.tapError((e) =>
+                Effect.sync(() => emit.single({ type: "error", message: e.message, fatal: true })),
+              ),
+            );
+
+          emit.single({
+            type: "done",
+            outPath: result.outPath,
+            durationSec: result.duration,
+          });
+        }).pipe(
+          Effect.ensuring(Effect.sync(() => emit.end())),
+          Effect.catchAll((e: unknown) =>
+            Effect.sync(() => {
               emit.single({
                 type: "error",
-                message: `Missing ${missing.length} video(s): ${missing.join(", ")}`,
+                message: e instanceof Error ? e.message : String(e),
                 fatal: true,
-              } as RenderEvent);
-              return;
-            }
-
-            // TTS
-            yield* Effect.tryPromise({
-              try: () => fs.mkdir(voiceDir(job.jobDir), { recursive: true }),
-              catch: () => undefined,
-            });
-
-            // Emit per-segment TTS events
-            const ttsTask = ttsSvc
-              .synthesizeAll(job.script.segments, voiceDir(job.jobDir))
-              .pipe(
-                Effect.tapError((e) =>
-                  Effect.sync(() =>
-                    emit.single({
-                      type: "tts",
-                      segmentId: "?",
-                      index: -1,
-                      status: "error",
-                      message: e.message,
-                    } as RenderEvent),
-                  ),
-                ),
-              );
-
-            // We can't easily get per-segment events from synthesizeAll, so we
-            // emit synthetic start events before, and rely on the compose stream
-            // for per-pack visibility. Future: refactor TtsService to expose
-            // a per-segment stream.
-            yield* Effect.forEach(
-              job.script.segments,
-              (seg, i) =>
-                Effect.sync(() =>
-                  emit.single({
-                    type: "tts",
-                    segmentId: seg.id,
-                    index: i,
-                    status: "start",
-                  } as RenderEvent),
-                ),
-              { concurrency: 1, discard: true },
-            );
-
-            yield* ttsTask;
-
-            yield* Effect.forEach(
-              job.script.segments,
-              (seg, i) =>
-                Effect.sync(() =>
-                  emit.single({
-                    type: "tts",
-                    segmentId: seg.id,
-                    index: i,
-                    status: "done",
-                  } as RenderEvent),
-                ),
-              { concurrency: 1, discard: true },
-            );
-
-            // Render callouts.ass
-            const ass = renderCalloutsAss(job.script);
-            yield* storage.writeText(calloutsPath(job.jobDir), ass);
-
-            // Compose
-            const videoPaths = job.script.segments.map((s) => videoPath(job.jobDir, s.id));
-            const audioPaths = job.script.segments.map((s) => audioPath(job.jobDir, s.id));
-            const out = finalPath(job.jobDir);
-
-            const result = yield* composeSvc
-              .compose({
-                script: job.script,
-                videoPaths,
-                audioPaths,
-                calloutsAssPath: calloutsPath(job.jobDir),
-                outPath: out,
-                padMode: "freeze",
-                onEvent: (e) => {
-                  // Translate compose events to render events
-                  if (e.type === "compose-start") {
-                    emit.single({
-                      type: "compose",
-                      status: "start",
-                      total: e.totalPacks,
-                    } as RenderEvent);
-                  } else if (e.type === "compose-pack-done") {
-                    emit.single({
-                      type: "compose",
-                      status: "pack-done",
-                      current: e.index + 1,
-                      total: videoPaths.length,
-                      message: e.segmentId,
-                    } as RenderEvent);
-                  } else if (e.type === "compose-pack-error") {
-                    emit.single({
-                      type: "compose",
-                      status: "pack-error",
-                      current: e.index + 1,
-                      total: videoPaths.length,
-                      message: `${e.segmentId}: ${e.message}`,
-                    } as RenderEvent);
-                  } else if (e.type === "compose-done") {
-                    emit.single({
-                      type: "compose",
-                      status: "done",
-                      outPath: e.outPath,
-                      durationSec: e.duration,
-                    } as RenderEvent);
-                  } else if (e.type === "compose-error") {
-                    emit.single({
-                      type: "compose",
-                      status: "error",
-                      message: e.message,
-                    } as RenderEvent);
-                  }
-                },
-              })
-              .pipe(
-                Effect.tapError((e) =>
-                  Effect.sync(() =>
-                    emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent),
-                  ),
-                ),
-              );
-
-            emit.single({
-              type: "done",
-              outPath: result.outPath,
-              durationSec: result.duration,
-            } as RenderEvent);
-            emit.end();
-          }).pipe(
-            Effect.catchAll((e) =>
-              Effect.sync(() => {
-                emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent);
-                emit.end();
-              }),
-            ),
+              });
+            }),
           ),
-        );
-      });
+        ),
+      );
 
     const jobDir = (jobId: string) => storage.jobDir(jobId);
 

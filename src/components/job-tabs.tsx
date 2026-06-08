@@ -10,6 +10,7 @@ import { useState } from "react";
 import type { Script } from "@/domain/script/schema";
 import type { VideoStatus } from "@/domain/jobs/service";
 import { ScriptViewer } from "./script-viewer";
+import { TtsViewer } from "./tts-viewer";
 import { PromptsViewer } from "./prompts-viewer";
 import { VideoChecklist } from "./video-checklist";
 import { RenderPanel } from "./render-panel";
@@ -23,7 +24,7 @@ interface Props {
   finalPath: string;
 }
 
-type Tab = "script" | "prompts" | "videos" | "render";
+type Tab = "script" | "narration" | "prompts" | "videos" | "render";
 
 export function JobTabs({ jobId, script, videos, allUploaded, finalExists, finalPath }: Props) {
   const [tab, setTab] = useState<Tab>("script");
@@ -43,6 +44,9 @@ export function JobTabs({ jobId, script, videos, allUploaded, finalExists, final
       >
         <TabButton active={tab === "script"} onClick={() => setTab("script")}>
           Script
+        </TabButton>
+        <TabButton active={tab === "narration"} onClick={() => setTab("narration")}>
+          Narration
         </TabButton>
         <TabButton active={tab === "prompts"} onClick={() => setTab("prompts")}>
           Prompts
@@ -64,6 +68,7 @@ export function JobTabs({ jobId, script, videos, allUploaded, finalExists, final
       </div>
 
       {tab === "script" && <ScriptViewer script={script} />}
+      {tab === "narration" && <TtsViewer script={script} />}
       {tab === "prompts" && <PromptsViewer jobId={jobId} script={script} />}
       {tab === "videos" && (
         <VideoChecklist
