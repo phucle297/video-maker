@@ -1,0 +1,10 @@
+[install]
+# Use exact versions in lockfile for reproducibility
+saveExact = true
+
+[install.cache]
+disable = false
+
+[run]
+# Use Bun's bundler for faster TS execution
+bun = true

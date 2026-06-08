@@ -1,0 +1,22 @@
+{
+  "categories": {
+    "correctness": "error",
+    "perf": "warn",
+    "style": "warn",
+    "suspicious": "error"
+  },
+  "rules": {
+    "no-console": "off",
+    "no-unused-vars": "warn",
+    "no-explicit-any": "warn",
+    "prefer-const": "error",
+    "eqeqeq": ["error", "always"]
+  },
+  "ignore": [
+    "node_modules",
+    ".next",
+    "dist",
+    "outputs",
+    "next-env.d.ts"
+  ]
+}
