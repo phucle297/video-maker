@@ -67,24 +67,39 @@ export function BriefForm() {
         <label style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
           Story type
         </label>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.5rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: "0.5rem",
+          }}
+        >
           {STORY_TYPES.map((st) => (
             <button
               key={st.value}
               type="button"
               onClick={() => setStoryType(st.value)}
               className={storyType === st.value ? "btn" : "btn btn-secondary"}
-              style={{ flexDirection: "column", alignItems: "flex-start", padding: "0.6rem 0.8rem" }}
+              style={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                padding: "0.6rem 0.8rem",
+              }}
             >
               <span style={{ fontWeight: 600 }}>{st.label}</span>
-              <span className="faint" style={{ fontSize: "0.78rem" }}>{st.hint}</span>
+              <span className="faint" style={{ fontSize: "0.78rem" }}>
+                {st.hint}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <label htmlFor="theme" style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
+        <label
+          htmlFor="theme"
+          style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+        >
           Theme / topic
         </label>
         <input
@@ -99,7 +114,10 @@ export function BriefForm() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
         <div>
-          <label htmlFor="length" style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
+          <label
+            htmlFor="length"
+            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+          >
             Target length (minutes)
           </label>
           <input
@@ -113,12 +131,17 @@ export function BriefForm() {
           />
         </div>
         <div>
-          <label htmlFor="aspect" style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
+          <label
+            htmlFor="aspect"
+            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+          >
             Aspect ratio
           </label>
           <select id="aspect" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
             {ASPECTS.map((a) => (
-              <option key={a.value} value={a.value}>{a.label}</option>
+              <option key={a.value} value={a.value}>
+                {a.label}
+              </option>
             ))}
           </select>
         </div>
@@ -126,17 +149,25 @@ export function BriefForm() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
         <div>
-          <label htmlFor="lang" style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
+          <label
+            htmlFor="lang"
+            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+          >
             Language
           </label>
           <select id="lang" value={lang} onChange={(e) => setLang(e.target.value)}>
             {LANGS.map((l) => (
-              <option key={l.value} value={l.value}>{l.label}</option>
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label htmlFor="voice" style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}>
+          <label
+            htmlFor="voice"
+            style={{ display: "block", marginBottom: "0.4rem", fontWeight: 500 }}
+          >
             TTS voice
           </label>
           <input

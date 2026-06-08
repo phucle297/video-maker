@@ -14,14 +14,19 @@
 import { Config, Effect, Layer, Stream } from "effect";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { runFfmpeg, ffprobe } from "./ffmpeg.js";
-import { FileSystemError } from "../lib/errors.js";
-import type { Script } from "../script/schema.js";
+import { runFfmpeg, ffprobe } from "./ffmpeg";
+import { FileSystemError } from "../lib/errors";
+import type { Script } from "../script/schema";
 
 export type RenderEvent =
   | { type: "compose-start"; totalPacks: number }
   | { type: "compose-pack-done"; index: number; segmentId: string }
-  | { type: "compose-pack-error"; index: number; segmentId: string; message: string }
+  | {
+      type: "compose-pack-error";
+      index: number;
+      segmentId: string;
+      message: string;
+    }
   | { type: "compose-done"; outPath: string; duration: number }
   | { type: "compose-error"; message: string };
 
@@ -54,8 +59,14 @@ async function buildPerSegmentPack(
 ): Promise<{ path: string; duration: number }> {
   const outPath = path.join(outDir, `pack-${String(segIndex).padStart(3, "0")}.mp4`);
 
-  const vProbe = await ffprobe(videoPath).then((p) => p, () => ({ duration: 0, width: 0, height: 0 }));
-  const aProbe = await ffprobe(audioPath).then((p) => p, () => ({ duration: 0, width: 0, height: 0 }));
+  const vProbe = await ffprobe(videoPath).then(
+    (p) => p,
+    () => ({ duration: 0, width: 0, height: 0 }),
+  );
+  const aProbe = await ffprobe(audioPath).then(
+    (p) => p,
+    () => ({ duration: 0, width: 0, height: 0 }),
+  );
 
   const vDur = vProbe.duration;
   const aDur = aProbe.duration;
@@ -99,12 +110,19 @@ async function buildPerSegmentPack(
       outPath,
     ],
     { inheritIO: false },
-  ).then(() => undefined, (e) => { throw e; });
+  ).then(
+    () => undefined,
+    (e) => {
+      throw e;
+    },
+  );
 
   return { path: outPath, duration: aDur };
 }
 
-export const compose = (input: ComposeInput): Effect.Effect<{ outPath: string; duration: number }, FileSystemError> =>
+export const compose = (
+  input: ComposeInput,
+): Effect.Effect<{ outPath: string; duration: number }, FileSystemError> =>
   Effect.gen(function* () {
     const { script, videoPaths, audioPaths, calloutsAssPath, outPath } = input;
     const padMode = input.padMode ?? "freeze";
@@ -116,13 +134,23 @@ export const compose = (input: ComposeInput): Effect.Effect<{ outPath: string; d
 
     yield* Effect.tryPromise({
       try: () => fs.mkdir(path.dirname(outPath), { recursive: true }),
-      catch: (e) => new FileSystemError({ message: "mkdir failed", path: path.dirname(outPath), cause: e }),
+      catch: (e) =>
+        new FileSystemError({
+          message: "mkdir failed",
+          path: path.dirname(outPath),
+          cause: e,
+        }),
     });
 
     const tmpDir = path.join(path.dirname(outPath), ".tmp-packs");
     yield* Effect.tryPromise({
       try: () => fs.mkdir(tmpDir, { recursive: true }),
-      catch: (e) => new FileSystemError({ message: "mkdir failed", path: tmpDir, cause: e }),
+      catch: (e) =>
+        new FileSystemError({
+          message: "mkdir failed",
+          path: tmpDir,
+          cause: e,
+        }),
     });
 
     // Build packs sequentially (ffmpeg is heavy; parallel = memory pressure)
@@ -142,7 +170,12 @@ export const compose = (input: ComposeInput): Effect.Effect<{ outPath: string; d
         emit({ type: "compose-pack-done", index: i, segmentId: seg.id });
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        emit({ type: "compose-pack-error", index: i, segmentId: seg.id, message });
+        emit({
+          type: "compose-pack-error",
+          index: i,
+          segmentId: seg.id,
+          message,
+        });
         // Continue with what we have
       }
     }
@@ -152,7 +185,12 @@ export const compose = (input: ComposeInput): Effect.Effect<{ outPath: string; d
     const listBody = packs.map((p) => `file '${p.path.replace(/'/g, "'\\''")}'`).join("\n");
     yield* Effect.tryPromise({
       try: () => fs.writeFile(concatList, listBody, "utf-8"),
-      catch: (e) => new FileSystemError({ message: "write concat list failed", path: concatList, cause: e }),
+      catch: (e) =>
+        new FileSystemError({
+          message: "write concat list failed",
+          path: concatList,
+          cause: e,
+        }),
     });
 
     const assFilter = `ass=${calloutsAssPath.replace(/'/g, "'\\''")}`;
@@ -184,7 +222,9 @@ export const compose = (input: ComposeInput): Effect.Effect<{ outPath: string; d
       ],
       { inheritIO: false },
     ).pipe(
-      Effect.tapError((e) => Effect.sync(() => emit({ type: "compose-error", message: e.message }))),
+      Effect.tapError((e) =>
+        Effect.sync(() => emit({ type: "compose-error", message: e.message })),
+      ),
     );
 
     // Cleanup
@@ -193,7 +233,9 @@ export const compose = (input: ComposeInput): Effect.Effect<{ outPath: string; d
       catch: () => undefined,
     }).pipe(Effect.ignoreLogged);
 
-    const probe = yield* ffprobe(outPath).pipe(Effect.orElseSucceed(() => ({ duration: 0, width: 0, height: 0 })));
+    const probe = yield* ffprobe(outPath).pipe(
+      Effect.orElseSucceed(() => ({ duration: 0, width: 0, height: 0 })),
+    );
 
     emit({ type: "compose-done", outPath, duration: probe.duration });
 

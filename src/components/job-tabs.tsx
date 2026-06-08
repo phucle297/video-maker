@@ -55,7 +55,11 @@ export function JobTabs({ jobId, script, videos, allUploaded, finalExists, final
         </TabButton>
         <TabButton active={tab === "render"} onClick={() => setTab("render")}>
           Render
-          {finalExists && <span className="badge badge-success" style={{ marginLeft: "0.5rem" }}>done</span>}
+          {finalExists && (
+            <span className="badge badge-success" style={{ marginLeft: "0.5rem" }}>
+              done
+            </span>
+          )}
         </TabButton>
       </div>
 

@@ -11,13 +11,7 @@ import { Schema } from "effect";
 
 // ---------- enums ----------
 
-export const StoryType = Schema.Literal(
-  "nosleep",
-  "creepypasta",
-  "mystic",
-  "rules",
-  "imagine",
-);
+export const StoryType = Schema.Literal("nosleep", "creepypasta", "mystic", "rules", "imagine");
 export type StoryType = Schema.Schema.Type<typeof StoryType>;
 
 export const AspectRatio = Schema.Literal("9:16", "16:9", "1:1");

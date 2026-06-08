@@ -11,3 +11,4 @@ outputs/
 !outputs/.gitkeep
 bun.lock
 next-env.d.ts
+tsconfig.tsbuildinfo

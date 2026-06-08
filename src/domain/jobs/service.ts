@@ -16,7 +16,18 @@ import { ScriptService } from "../script/service.js";
 import { TtsService } from "../tts/service.js";
 import { renderCalloutsAss, validateCallouts } from "../callouts/ass.js";
 import { ComposeService, type RenderEvent } from "../compose/service.js";
-import { JobStorage, scriptPath, videoPath, audioPath, calloutsPath, finalPath, promptsPath, readmePath, videosDir, voiceDir } from "./storage.js";
+import {
+  JobStorage,
+  scriptPath,
+  videoPath,
+  audioPath,
+  calloutsPath,
+  finalPath,
+  promptsPath,
+  readmePath,
+  videosDir,
+  voiceDir,
+} from "./storage.js";
 import { jobDateStamp, slugify } from "./slug.js";
 import { renderPromptsMd } from "./promptsMd.js";
 import { MissingVideosError, FileSystemError } from "../lib/errors.js";
@@ -101,7 +112,9 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
           const p = videoPath(jobDir(jobId), seg.id);
           const ex = yield* storage.exists(p);
           if (ex) {
-            const probe = yield* ffprobe(p).pipe(Effect.orElseSucceed(() => ({ duration: 0, width: 0, height: 0 })));
+            const probe = yield* ffprobe(p).pipe(
+              Effect.orElseSucceed(() => ({ duration: 0, width: 0, height: 0 })),
+            );
             videos.push({
               segmentId: seg.id,
               uploaded: true,
@@ -143,9 +156,15 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
       Stream.async<RenderEvent, never>((emit) => {
         Effect.runFork(
           Effect.gen(function* () {
-            const job = yield* storage.getJob(jobId).pipe(
-              Effect.tapError((e) => Effect.sync(() => emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent))),
-            );
+            const job = yield* storage
+              .getJob(jobId)
+              .pipe(
+                Effect.tapError((e) =>
+                  Effect.sync(() =>
+                    emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent),
+                  ),
+                ),
+              );
             if (!job) return;
 
             emit.single({
@@ -181,7 +200,15 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
               .synthesizeAll(job.script.segments, voiceDir(job.jobDir))
               .pipe(
                 Effect.tapError((e) =>
-                  Effect.sync(() => emit.single({ type: "tts", segmentId: "?", index: -1, status: "error", message: e.message } as RenderEvent)),
+                  Effect.sync(() =>
+                    emit.single({
+                      type: "tts",
+                      segmentId: "?",
+                      index: -1,
+                      status: "error",
+                      message: e.message,
+                    } as RenderEvent),
+                  ),
                 ),
               );
 
@@ -193,7 +220,12 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
               job.script.segments,
               (seg, i) =>
                 Effect.sync(() =>
-                  emit.single({ type: "tts", segmentId: seg.id, index: i, status: "start" } as RenderEvent),
+                  emit.single({
+                    type: "tts",
+                    segmentId: seg.id,
+                    index: i,
+                    status: "start",
+                  } as RenderEvent),
                 ),
               { concurrency: 1, discard: true },
             );
@@ -204,7 +236,12 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
               job.script.segments,
               (seg, i) =>
                 Effect.sync(() =>
-                  emit.single({ type: "tts", segmentId: seg.id, index: i, status: "done" } as RenderEvent),
+                  emit.single({
+                    type: "tts",
+                    segmentId: seg.id,
+                    index: i,
+                    status: "done",
+                  } as RenderEvent),
                 ),
               { concurrency: 1, discard: true },
             );
@@ -229,26 +266,65 @@ export class JobService extends Effect.Service<JobService>()("app/JobService", {
                 onEvent: (e) => {
                   // Translate compose events to render events
                   if (e.type === "compose-start") {
-                    emit.single({ type: "compose", status: "start", total: e.totalPacks } as RenderEvent);
+                    emit.single({
+                      type: "compose",
+                      status: "start",
+                      total: e.totalPacks,
+                    } as RenderEvent);
                   } else if (e.type === "compose-pack-done") {
-                    emit.single({ type: "compose", status: "pack-done", current: e.index + 1, total: videoPaths.length, message: e.segmentId } as RenderEvent);
+                    emit.single({
+                      type: "compose",
+                      status: "pack-done",
+                      current: e.index + 1,
+                      total: videoPaths.length,
+                      message: e.segmentId,
+                    } as RenderEvent);
                   } else if (e.type === "compose-pack-error") {
-                    emit.single({ type: "compose", status: "pack-error", current: e.index + 1, total: videoPaths.length, message: `${e.segmentId}: ${e.message}` } as RenderEvent);
+                    emit.single({
+                      type: "compose",
+                      status: "pack-error",
+                      current: e.index + 1,
+                      total: videoPaths.length,
+                      message: `${e.segmentId}: ${e.message}`,
+                    } as RenderEvent);
                   } else if (e.type === "compose-done") {
-                    emit.single({ type: "compose", status: "done", outPath: e.outPath, durationSec: e.duration } as RenderEvent);
+                    emit.single({
+                      type: "compose",
+                      status: "done",
+                      outPath: e.outPath,
+                      durationSec: e.duration,
+                    } as RenderEvent);
                   } else if (e.type === "compose-error") {
-                    emit.single({ type: "compose", status: "error", message: e.message } as RenderEvent);
+                    emit.single({
+                      type: "compose",
+                      status: "error",
+                      message: e.message,
+                    } as RenderEvent);
                   }
                 },
               })
-              .pipe(Effect.tapError((e) => Effect.sync(() => emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent))));
+              .pipe(
+                Effect.tapError((e) =>
+                  Effect.sync(() =>
+                    emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent),
+                  ),
+                ),
+              );
 
-            emit.single({ type: "done", outPath: result.outPath, durationSec: result.duration } as RenderEvent);
+            emit.single({
+              type: "done",
+              outPath: result.outPath,
+              durationSec: result.duration,
+            } as RenderEvent);
             emit.end();
-          }).pipe(Effect.catchAll((e) => Effect.sync(() => {
-            emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent);
-            emit.end();
-          }))),
+          }).pipe(
+            Effect.catchAll((e) =>
+              Effect.sync(() => {
+                emit.single({ type: "error", message: e.message, fatal: true } as RenderEvent);
+                emit.end();
+              }),
+            ),
+          ),
         );
       });
 

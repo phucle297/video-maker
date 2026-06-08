@@ -12,7 +12,9 @@ export function ScriptViewer({ script }: { script: Script }) {
     <div style={{ display: "grid", gap: "1rem" }}>
       <div className="card">
         <h2 style={{ fontSize: "1.1rem", marginBottom: "0.5rem" }}>{script.title}</h2>
-        <p className="muted" style={{ fontStyle: "italic" }}>"{script.hook}"</p>
+        <p className="muted" style={{ fontStyle: "italic" }}>
+          "{script.hook}"
+        </p>
         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
           <span className="badge badge-accent">{script.storyType}</span>
           <span className="badge">{script.lang}</span>
@@ -24,7 +26,9 @@ export function ScriptViewer({ script }: { script: Script }) {
 
       <div className="card">
         <h3 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>Style anchor</h3>
-        <p className="muted" style={{ fontSize: "0.9rem" }}>{script.styleAnchor}</p>
+        <p className="muted" style={{ fontSize: "0.9rem" }}>
+          {script.styleAnchor}
+        </p>
       </div>
 
       <div>
@@ -32,15 +36,31 @@ export function ScriptViewer({ script }: { script: Script }) {
         <div style={{ display: "grid", gap: "0.75rem" }}>
           {script.segments.map((seg, i) => (
             <div key={seg.id} className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 <strong>
                   {i + 1}. {seg.id}
                 </strong>
-                <span className="faint" style={{ fontSize: "0.85rem" }}>~{formatDuration(seg.approxDuration)}</span>
+                <span className="faint" style={{ fontSize: "0.85rem" }}>
+                  ~{formatDuration(seg.approxDuration)}
+                </span>
               </div>
               <p style={{ margin: "0 0 0.75rem 0" }}>{seg.text}</p>
               {seg.callouts.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.5rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "0.4rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
                   {seg.callouts.map((co, j) => (
                     <span
                       key={j}

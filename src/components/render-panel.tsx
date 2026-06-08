@@ -83,13 +83,16 @@ export function RenderPanel({ jobId, allUploaded, finalExists, finalPath }: Prop
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1rem",
+          }}
+        >
           <h3 style={{ fontSize: "1rem", margin: 0 }}>Render</h3>
-          <button
-            className="btn"
-            onClick={start}
-            disabled={running || !allUploaded}
-          >
+          <button className="btn" onClick={start} disabled={running || !allUploaded}>
             {running ? "Rendering…" : isDone || finalExists ? "Re-render" : "Render"}
           </button>
         </div>
@@ -106,7 +109,10 @@ export function RenderPanel({ jobId, allUploaded, finalExists, finalPath }: Prop
             }}
           >
             ✓ Done! Download:{" "}
-            <a href={`/api/jobs/${jobId}/final`} style={{ color: "inherit", textDecoration: "underline" }}>
+            <a
+              href={`/api/jobs/${jobId}/final`}
+              style={{ color: "inherit", textDecoration: "underline" }}
+            >
               final.mp4
             </a>
           </div>

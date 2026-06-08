@@ -95,10 +95,20 @@ function EventLine({ event }: { event: RenderEvent }) {
   }
 }
 
-function Line({ time, color, children }: { time: string; color: string; children: React.ReactNode }) {
+function Line({
+  time,
+  color,
+  children,
+}: {
+  time: string;
+  color: string;
+  children: React.ReactNode;
+}) {
   return (
     <div style={{ padding: "0.15rem 0.5rem", color }}>
-      <span className="faint" style={{ marginRight: "0.5rem" }}>{time}</span>
+      <span className="faint" style={{ marginRight: "0.5rem" }}>
+        {time}
+      </span>
       {children}
     </div>
   );

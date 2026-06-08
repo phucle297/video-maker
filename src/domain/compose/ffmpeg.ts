@@ -7,7 +7,7 @@
 import { Effect } from "effect";
 import { spawn } from "node:child_process";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import { FfmpegError } from "../lib/errors.js";
+import { FfmpegError } from "../lib/errors";
 
 const FFMPEG = ffmpegInstaller.path;
 const FFPROBE = FFMPEG.replace(/ffmpeg$/, "ffprobe");
@@ -37,7 +37,11 @@ export const runFfmpeg = (
       proc.on("error", (e) =>
         resume(
           Effect.fail(
-            new FfmpegError({ message: "ffmpeg spawn failed", command: args.join(" "), cause: e }),
+            new FfmpegError({
+              message: "ffmpeg spawn failed",
+              command: args.join(" "),
+              cause: e,
+            }),
           ),
         ),
       );
@@ -79,7 +83,11 @@ export const ffprobe = (file: string): Effect.Effect<ProbeResult, FfmpegError> =
       proc.on("error", (e) =>
         resume(
           Effect.fail(
-            new FfmpegError({ message: "ffprobe spawn failed", command: file, cause: e }),
+            new FfmpegError({
+              message: "ffprobe spawn failed",
+              command: file,
+              cause: e,
+            }),
           ),
         ),
       );
@@ -87,13 +95,22 @@ export const ffprobe = (file: string): Effect.Effect<ProbeResult, FfmpegError> =
         if (code === 0) resume(Effect.succeed(out));
         else
           resume(
-            Effect.fail(new FfmpegError({ message: `ffprobe exit ${code}: ${err}`, command: file })),
+            Effect.fail(
+              new FfmpegError({
+                message: `ffprobe exit ${code}: ${err}`,
+                command: file,
+              }),
+            ),
           );
       });
     });
 
     const parsed = yield* Effect.try({
-      try: () => JSON.parse(stdout) as { streams?: { width?: number; height?: number; codec_name?: string }[]; format?: { duration?: string | number } },
+      try: () =>
+        JSON.parse(stdout) as {
+          streams?: { width?: number; height?: number; codec_name?: string }[];
+          format?: { duration?: string | number };
+        },
       catch: (e) => new FfmpegError({ message: "ffprobe: invalid JSON", cause: e }),
     });
 

@@ -26,8 +26,10 @@ export const calloutsPath = (jobDir: string) => path.join(jobDir, "callouts.ass"
 export const finalPath = (jobDir: string) => path.join(jobDir, "final.mp4");
 export const videosDir = (jobDir: string) => path.join(jobDir, "videos");
 export const voiceDir = (jobDir: string) => path.join(jobDir, "voice");
-export const videoPath = (jobDir: string, segId: string) => path.join(videosDir(jobDir), `${segId}.mp4`);
-export const audioPath = (jobDir: string, segId: string) => path.join(voiceDir(jobDir), `${segId}.mp3`);
+export const videoPath = (jobDir: string, segId: string) =>
+  path.join(videosDir(jobDir), `${segId}.mp4`);
+export const audioPath = (jobDir: string, segId: string) =>
+  path.join(voiceDir(jobDir), `${segId}.mp3`);
 
 export class JobStorage extends Effect.Service<JobStorage>()("app/JobStorage", {
   effect: Effect.gen(function* () {

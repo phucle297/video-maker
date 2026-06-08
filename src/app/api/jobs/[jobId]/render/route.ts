@@ -23,10 +23,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ jobId:
 
   const streamExit = await runtime.runPromiseExit(streamEffect);
   if (Exit.isFailure(streamExit)) {
-    return new Response(
-      JSON.stringify({ error: "Failed to start render" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Failed to start render" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
   const stream = streamExit.value;
 

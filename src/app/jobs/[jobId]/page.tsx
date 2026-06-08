@@ -44,7 +44,10 @@ export default async function JobPage({ params }: PageProps) {
           ← All jobs
         </Link>
         <h1 style={{ fontSize: "1.6rem", marginTop: "0.5rem" }}>{status.script.title}</h1>
-        <div className="muted" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+        <div
+          className="muted"
+          style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "0.5rem" }}
+        >
           <span className="badge badge-accent">{status.script.storyType}</span>
           <span className="badge">{status.script.lang}</span>
           <span className="badge">{status.script.aspectRatio}</span>

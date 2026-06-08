@@ -21,7 +21,9 @@ export function renderPromptsMd(script: Script, jobId: string): string {
   lines.push(`> **Story type:** ${script.storyType}  `);
   lines.push(`> **Language:** ${script.lang}  `);
   lines.push(`> **Aspect ratio:** ${aspect}  `);
-  lines.push(`> **Total target duration:** ${Math.round(script.totalDuration)}s (~${Math.round(script.totalDuration / 60)} min)  `);
+  lines.push(
+    `> **Total target duration:** ${Math.round(script.totalDuration)}s (~${Math.round(script.totalDuration / 60)} min)  `,
+  );
   lines.push(`> **Total segments:** ${script.segments.length}`);
   lines.push("");
   lines.push("---");
@@ -29,18 +31,30 @@ export function renderPromptsMd(script: Script, jobId: string): string {
   lines.push("## How to use this file");
   lines.push("");
   lines.push("1. Open **Google Gemini** (gemini.google.com) in your browser.");
-  lines.push("2. For each segment below, copy the **Visual prompt** block, paste it into Gemini chat, and ask for a video clip.");
-  lines.push(`3. **Be explicit** in your ask: "Generate a ${aspect} video clip, ~${script.segments[0]?.visual.durationHint ?? 6} seconds".`);
+  lines.push(
+    "2. For each segment below, copy the **Visual prompt** block, paste it into Gemini chat, and ask for a video clip.",
+  );
+  lines.push(
+    `3. **Be explicit** in your ask: "Generate a ${aspect} video clip, ~${script.segments[0]?.visual.durationHint ?? 6} seconds".`,
+  );
   lines.push("4. Download the result.");
-  lines.push("5. Save it as `videos/<segmentId>.mp4` (the exact filename is listed under each segment).");
+  lines.push(
+    "5. Save it as `videos/<segmentId>.mp4` (the exact filename is listed under each segment).",
+  );
   lines.push("6. When ALL videos are in, click **Render** in the UI.");
   lines.push("");
   lines.push("### Tips for visual consistency");
   lines.push("");
-  lines.push("- **Keep ONE Gemini chat thread** open across all segments. The model will pick up the visual style from earlier turns.");
+  lines.push(
+    "- **Keep ONE Gemini chat thread** open across all segments. The model will pick up the visual style from earlier turns.",
+  );
   lines.push(`- **Style anchor** (prepended to every prompt): ${script.styleAnchor}`);
-  lines.push(`- If a clip looks off, regenerate it in the same chat with feedback like "darker, more rain" — it usually nails it on the 2nd try.`);
-  lines.push(`- If Gemini refuses a prompt (safety filter on horror content), rephrase the prompt to be more abstract / less gory. The narration still carries the story.`);
+  lines.push(
+    `- If a clip looks off, regenerate it in the same chat with feedback like "darker, more rain" — it usually nails it on the 2nd try.`,
+  );
+  lines.push(
+    `- If Gemini refuses a prompt (safety filter on horror content), rephrase the prompt to be more abstract / less gory. The narration still carries the story.`,
+  );
   lines.push("");
   lines.push("---");
   lines.push("");
@@ -50,7 +64,8 @@ export function renderPromptsMd(script: Script, jobId: string): string {
     const seg = script.segments[i];
     const start = t;
     const end = t + seg.approxDuration;
-    const mm = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const mm = (s: number) =>
+      `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
     lines.push(`## Segment ${i + 1} / ${script.segments.length} — ${mm(start)} → ${mm(end)}`);
     lines.push("");
@@ -73,7 +88,9 @@ export function renderPromptsMd(script: Script, jobId: string): string {
     lines.push("");
     lines.push("**Gemini request template** (paste AFTER the visual prompt):");
     lines.push("");
-    lines.push(`> Generate a ${aspect} video clip, ~${seg.visual.durationHint} seconds. ${seg.visual.notesForHuman ?? ""}`);
+    lines.push(
+      `> Generate a ${aspect} video clip, ~${seg.visual.durationHint} seconds. ${seg.visual.notesForHuman ?? ""}`,
+    );
     lines.push("");
     lines.push(`**Save the generated video as:** \`videos/${seg.id}.mp4\``);
     lines.push("");

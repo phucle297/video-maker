@@ -14,7 +14,10 @@ import { JobService, videoPath } from "@/domain/jobs/service";
 export const dynamic = "force-dynamic";
 export const runtime2 = "nodejs";
 
-export async function PUT(req: Request, { params }: { params: Promise<{ jobId: string; segId: string }> }) {
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ jobId: string; segId: string }> },
+) {
   const { jobId, segId } = await params;
 
   const formData = await req.formData();

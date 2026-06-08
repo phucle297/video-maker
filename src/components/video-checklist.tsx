@@ -21,9 +21,8 @@ export function VideoChecklist({ jobId, segments, videos, onChange }: Props) {
   return (
     <div>
       <p className="muted" style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
-        Upload one video per segment. The aspect ratio should match the script
-        ({segments[0]?.visual.aspectRatio ?? "9:16"}). Recommended clip length:
-        6-8 seconds.
+        Upload one video per segment. The aspect ratio should match the script (
+        {segments[0]?.visual.aspectRatio ?? "9:16"}). Recommended clip length: 6-8 seconds.
       </p>
 
       <div style={{ display: "grid", gap: "0.5rem" }}>
@@ -120,7 +119,16 @@ function VideoRow({
             ~{formatDuration(seg.approxDuration)} · mood: {seg.visual.mood}
           </span>
         </div>
-        <div className="muted" style={{ fontSize: "0.88rem", marginTop: "0.15rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div
+          className="muted"
+          style={{
+            fontSize: "0.88rem",
+            marginTop: "0.15rem",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {seg.text}
         </div>
         {error && (

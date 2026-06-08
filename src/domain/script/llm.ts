@@ -194,14 +194,11 @@ export class LLMService extends Effect.Service<LLMService>()("app/LLMService", {
 // ---------- test layer (mock) ----------
 
 export const LLMServiceTest = (responses: Record<string, unknown>) =>
-  Layer.succeed(
-    LLMService,
-    {
-      completeJSON: (_req: LLMRequest) =>
-        Effect.succeed({
-          json: responses["default"] ?? {},
-          content: JSON.stringify(responses["default"] ?? {}),
-          usage: undefined,
-        }),
-    } as unknown as LLMService,
-  );
+  Layer.succeed(LLMService, {
+    completeJSON: (_req: LLMRequest) =>
+      Effect.succeed({
+        json: responses["default"] ?? {},
+        content: JSON.stringify(responses["default"] ?? {}),
+        usage: undefined,
+      }),
+  } as unknown as LLMService);

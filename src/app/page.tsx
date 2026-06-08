@@ -51,7 +51,14 @@ export default async function HomePage() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1.5rem" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginBottom: "1.5rem",
+        }}
+      >
         <h1 style={{ fontSize: "1.6rem" }}>Your Jobs</h1>
         <span className="faint">{jobs.length} total</span>
       </div>
@@ -66,7 +73,13 @@ export default async function HomePage() {
           </Link>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+            gap: "1rem",
+          }}
+        >
           {jobs.map((job) => (
             <Link
               key={job.jobId}
@@ -74,11 +87,21 @@ export default async function HomePage() {
               className="card"
               style={{ display: "block", textDecoration: "none", color: "inherit" }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "start",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 <h3 style={{ fontSize: "1.05rem", lineHeight: 1.3 }}>{job.title}</h3>
                 {job.finalExists && <span className="badge badge-success">done</span>}
               </div>
-              <div className="muted" style={{ fontSize: "0.85rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              <div
+                className="muted"
+                style={{ fontSize: "0.85rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}
+              >
                 <span className="badge badge-accent">{job.storyType}</span>
                 <span>{job.segments} segments</span>
                 <span>~{formatDuration(job.totalDuration)}</span>

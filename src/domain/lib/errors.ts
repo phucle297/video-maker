@@ -44,10 +44,13 @@ export class JobNotFoundError extends Schema.TaggedError<JobNotFoundError>()("Jo
   jobId: Schema.String,
 }) {}
 
-export class MissingVideosError extends Schema.TaggedError<MissingVideosError>()("MissingVideosError", {
-  message: Schema.String,
-  missing: Schema.Array(Schema.String),
-}) {}
+export class MissingVideosError extends Schema.TaggedError<MissingVideosError>()(
+  "MissingVideosError",
+  {
+    message: Schema.String,
+    missing: Schema.Array(Schema.String),
+  },
+) {}
 
 export type DomainError =
   | LLMError

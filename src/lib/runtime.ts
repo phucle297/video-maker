@@ -29,8 +29,7 @@ declare global {
 }
 
 export const runtime =
-  globalThis.__appEffectRuntime ??
-  ManagedRuntime.make(MainLayer, { memoMap: new Map() });
+  globalThis.__appEffectRuntime ?? ManagedRuntime.make(MainLayer, { memoMap: new Map() });
 
 if (process.env.NODE_ENV !== "production") {
   globalThis.__appEffectRuntime = runtime;

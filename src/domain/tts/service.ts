@@ -39,7 +39,8 @@ export class TtsService extends Effect.Service<TtsService>()("app/TtsService", {
 
         yield* Effect.tryPromise({
           try: () => fs.mkdir(path.dirname(outPath), { recursive: true }),
-          catch: (e) => new FileSystemError({ message: "mkdir failed", path: path.dirname(outPath), cause: e }),
+          catch: (e) =>
+            new FileSystemError({ message: "mkdir failed", path: path.dirname(outPath), cause: e }),
         });
 
         const emotion = emotionForMood(seg.visual.mood, defaultEmotion);
@@ -73,7 +74,7 @@ export class TtsService extends Effect.Service<TtsService>()("app/TtsService", {
         yield* Effect.forEach(
           segments,
           (seg) =>
-            synthesizeSegment(seg, path.join(outDir, `${seg.id}.mp3")).pipe(
+            synthesizeSegment(seg, path.join(outDir, `${seg.id}.mp3`)).pipe(
               Effect.tapError((e) => Effect.logError(`TTS failed for ${seg.id}`, e)),
             ),
           { concurrency, discard: true },

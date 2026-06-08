@@ -37,23 +37,37 @@ export function PromptsViewer({ jobId, script }: Props) {
           fontSize: "0.9rem",
         }}
       >
-        <strong>How to use:</strong> open Google Gemini in one chat tab. For each
-        segment below, copy the <strong>Visual prompt</strong>, paste it into
-        Gemini, ask for a {script.aspectRatio} video clip, download, then upload
-        in the <strong>Videos</strong> tab.
+        <strong>How to use:</strong> open Google Gemini in one chat tab. For each segment below,
+        copy the <strong>Visual prompt</strong>, paste it into Gemini, ask for a{" "}
+        {script.aspectRatio} video clip, download, then upload in the <strong>Videos</strong> tab.
       </div>
 
       {script.segments.map((seg, i) => {
-        const promptText = buildFullPrompt(script.styleAnchor, seg.visual.prompt, seg.visual.notesForHuman);
+        const promptText = buildFullPrompt(
+          script.styleAnchor,
+          seg.visual.prompt,
+          seg.visual.notesForHuman,
+        );
         const startSec = script.segments.slice(0, i).reduce((s, x) => s + x.approxDuration, 0);
         const endSec = startSec + seg.approxDuration;
-        const mm = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+        const mm = (s: number) =>
+          `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
         return (
           <div key={seg.id} className="card" style={{ marginBottom: "0.75rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                marginBottom: "0.5rem",
+              }}
+            >
               <strong>
-                {i + 1}. {seg.id} <span className="faint" style={{ fontWeight: 400 }}>· {mm(startSec)} → {mm(endSec)}</span>
+                {i + 1}. {seg.id}{" "}
+                <span className="faint" style={{ fontWeight: 400 }}>
+                  · {mm(startSec)} → {mm(endSec)}
+                </span>
               </strong>
               <button
                 className="btn btn-secondary"
